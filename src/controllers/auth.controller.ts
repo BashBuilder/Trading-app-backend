@@ -49,6 +49,10 @@ export const authController = {
     try {
       const { email, password } = req.body;
 
+      if (!email || !password) {
+        return res.status(400).json({ message: "All fields required" });
+      }
+
       const snapshot = await usersCollection.where("email", "==", email).get();
 
       if (snapshot.empty) {
