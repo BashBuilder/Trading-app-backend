@@ -15,17 +15,7 @@ authRoute.post(
   authController.register,
 );
 authRoute.post("/logout", authController.logout);
-// authRoute.post(
-//   "/verify-otp",
-//   // throttleAction({ action: "verify-otp", limit: 5, windowSeconds: 300 }),
-//   authController.verifyOtp,
-// );
-// authRoute.post(
-//   "/resend-otp",
-//   // throttleAction({ action: "resend-otp", limit: 5, windowSeconds: 300 }),
-//   authController.resendOtp,
-// );
-// authRoute.post("/get-otp", authController.getOtp);
+
 authRoute.get(
   "/user",
   // validateUser,
