@@ -10,34 +10,43 @@ export const authController = {
   // ✅ REGISTER
   register: async (req: Request, res: Response) => {
     try {
-      const { name, email, password } = req.body;
-      if (!name || !email || !password) {
+      const { firstName, lastName, email, password } = req.body;
+      if (!firstName || !lastName || !email || !password) {
         return res.status(400).json({ message: "All fields required" });
       }
       // Check if user exists
       const existing = await usersCollection.where("email", "==", email).get();
 
       if (!existing.empty) {
-        return res.status(400).json({ message: "Email already exists" });
+        return res.status(400).json({ message: "User already exists" });
       }
 
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
 
       const userRef = await usersCollection.add({
-        name,
+        firstName,
+        lastName,
         email,
         password: hashedPassword,
         createdAt: new Date(),
       });
+
+      const userData = {
+        id: userRef.id,
+        firstName,
+        lastName,
+        email,
+      };
 
       const accessToken = generateAccessToken(userRef.id);
       const refreshToken = generateRefreshToken(userRef.id);
 
       return res.status(201).json({
         message: "User registered",
-        accessToken,
-        refreshToken,
+        user: userData,
+        accessToken: accessToken || "no token generated",
+        refreshToken: refreshToken || "no token generated",
       });
     } catch (error) {
       return res.status(500).json({ message: "Server error", error });
