@@ -80,7 +80,7 @@ export const authController = {
       const accessToken = generateAccessToken(userDoc.id);
       const refreshToken = generateRefreshToken(userDoc.id);
 
-      return res.json({ accessToken, refreshToken });
+      return res.json({ user: userDoc.data(), accessToken, refreshToken });
     } catch (error) {
       return res.status(500).json({ message: "Server error", error });
     }
