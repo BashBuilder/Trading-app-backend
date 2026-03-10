@@ -1,9 +1,46 @@
 import { Router } from "express";
+import { signalController } from "../controllers/signal.controller";
+import { requireAdmin, validateUser } from "../middleware/auth.middleware";
 
-const signalRoutes = Router();
+// routes/signal.routes.js
+const signalRoute = Router();
 
-signalRoutes.get("/signal", (req, res) => {
-  res.json({ message: "Signal route is working!" });
-});
+// ── GET /api/v1/signals ────────────────────────────────────────────────────
+signalRoute.get("/", validateUser, signalController.getSignals);
 
-export default signalRoutes;
+// ── GET /api/v1/signals/:id ────────────────────────────────────────────────
+signalRoute.get("/:id", validateUser, signalController.getSignal);
+
+// ── GET /api/v1/signals/admin/all ─────────────────────────────────────────
+signalRoute.get(
+  "/admin/all",
+  validateUser,
+  requireAdmin,
+  signalController.adminGetAll,
+);
+
+// ── POST /api/v1/signals ──────────────────────────────────────────────────
+signalRoute.post(
+  "/",
+  validateUser,
+  requireAdmin,
+  signalController.createSignal,
+);
+
+// ── PUT /api/v1/signals/:id ────────────────────────────────────────────────
+signalRoute.put(
+  "/:id",
+  validateUser,
+  requireAdmin,
+  signalController.updateSignal,
+);
+
+// ── DELETE /api/v1/signals/:id ────────────────────────────────────────────
+signalRoute.delete(
+  "/:id",
+  validateUser,
+  requireAdmin,
+  signalController.deleteSignal,
+);
+
+export default signalRoute;

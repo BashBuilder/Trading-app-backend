@@ -53,3 +53,24 @@ export const requireRole =
     }
     next();
   };
+
+export const requireAdmin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userDoc = await db.collection("users").doc(req.user.uid).get();
+    if (!userDoc.exists || userDoc?.data()?.role !== "admin") {
+      return res
+        .status(403)
+        .json({ success: false, message: "Admin access required." });
+    }
+    next();
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Error checking admin access",
+    });
+  }
+};

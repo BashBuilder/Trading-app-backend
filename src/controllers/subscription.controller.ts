@@ -1,4 +1,3 @@
-import { get } from "axios";
 import { db } from "../config/firebase";
 import { Request, Response } from "express";
 import { TIERS } from "../data/constants";
@@ -18,9 +17,8 @@ export const subscriptionController = {
   },
   getCurrentSubscription: async (req: Request, res: Response) => {
     try {
-      const uid = req.user.uid;
-      const subDoc = await db.collection("subscriptions").doc(uid).get();
-
+      const email = req.user.email;
+      const subDoc = await db.collection("subscriptions").doc(email).get();
       if (!subDoc.exists) {
         return res.json({
           success: true,
@@ -32,7 +30,7 @@ export const subscriptionController = {
         const now = new Date();
         const expiresAt = sub.expiresAt.toDate();
         if (now > expiresAt) {
-          await db.collection("subscriptions").doc(uid).update({
+          await db.collection("subscriptions").doc(email).update({
             status: "expired",
           });
           return res.json({
@@ -51,7 +49,7 @@ export const subscriptionController = {
   },
   subscribe: async (req: Request, res: Response) => {
     try {
-      const uid = req.user.uid;
+      const email = req.user.email;
       const { tierId, billingCycle } = req.body;
 
       if (!tierId || !billingCycle) {
@@ -90,7 +88,7 @@ export const subscriptionController = {
       // oneTime has no expiry
 
       const subscription = {
-        uid,
+        email,
         tierId,
         tierName: tier.name,
         billingCycle,
@@ -102,10 +100,10 @@ export const subscriptionController = {
         // In production: add paymentIntentId, receiptUrl etc from Stripe/Paystack
       };
 
-      await db.collection("subscriptions").doc(uid).set(subscription);
+      await db.collection("subscriptions").doc(email).set(subscription);
 
       // Also update user doc with current tier for quick access
-      await db.collection("users").doc(uid).update({
+      await db.collection("users").doc(email).update({
         tier: tierId,
         tierStatus: "active",
       });
@@ -120,8 +118,8 @@ export const subscriptionController = {
   },
   cancel: async (req: Request, res: Response) => {
     try {
-      const uid = req.user.uid;
-      const subDoc = await db.collection("subscriptions").doc(uid).get();
+      const email = req.user.email;
+      const subDoc = await db.collection("subscriptions").doc(email).get();
 
       if (!subDoc.exists || subDoc?.data()?.status !== "active") {
         return res.status(400).json({
@@ -130,12 +128,12 @@ export const subscriptionController = {
         });
       }
 
-      await db.collection("subscriptions").doc(uid).update({
+      await db.collection("subscriptions").doc(email).update({
         status: "cancelled",
         cancelledAt: new Date(),
       });
 
-      await db.collection("users").doc(uid).update({
+      await db.collection("users").doc(email).update({
         tierStatus: "cancelled",
       });
 
