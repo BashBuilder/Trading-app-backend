@@ -84,6 +84,7 @@ export const authController = {
 
       const accessToken = generateAccessToken(userDoc.id);
       const refreshToken = generateRefreshToken(userDoc.id);
+      console.log();
       return res.json({ user: userDoc.data(), accessToken, refreshToken });
     } catch (error) {
       return res.status(500).json({ message: "Server error", error });
@@ -98,27 +99,7 @@ export const authController = {
   // ✅ GET USER (Protected route example)
   getUser: async (req: Request, res: Response) => {
     try {
-      const authHeader = req.headers.authorization;
-
-      if (!authHeader) {
-        return res.status(401).json({ message: "No token" });
-      }
-
-      const token = authHeader.split(" ")[1];
-      const decoded: any = jwt.verify(
-        token,
-        process.env.JWT_ACCESS_SECRET as string,
-      );
-
-      const userDoc = await usersCollection.doc(decoded.userId).get();
-
-      if (!userDoc.exists) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      const { password, ...userData } = userDoc.data() as any;
-
-      return res.json(userData);
+      return res.json(req.user);
     } catch {
       return res.status(401).json({ message: "Invalid token" });
     }

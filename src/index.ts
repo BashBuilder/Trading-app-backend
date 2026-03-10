@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import authRoute from "./routes/auth.route";
+import subscriptionRoute from "./routes/subscription.route";
 
 configDotenv();
 const app = express();
@@ -30,3 +31,4 @@ app.listen(PORT, () => {
 });
 
 app.use(`${version}/auth`, authRoute);
+app.use(`${version}/subscriptions`, subscriptionRoute);
