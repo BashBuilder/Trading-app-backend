@@ -27,7 +27,7 @@ export const authController = {
       const userRef = await usersCollection.add({
         firstName,
         lastName,
-        email,
+        email: email.trim().toLowerCase(),
         password: hashedPassword,
         createdAt: new Date(),
       });
@@ -39,14 +39,15 @@ export const authController = {
         email,
       };
 
-      const accessToken = generateAccessToken(userRef.id);
-      const refreshToken = generateRefreshToken(userRef.id);
+      // const accessToken = generateAccessToken(userRef.id);
+      // const refreshToken = generateRefreshToken(userRef.id);
 
       return res.status(201).json({
         message: "User registered",
-        user: userData,
-        accessToken: accessToken || "no token generated",
-        refreshToken: refreshToken || "no token generated",
+        success: true,
+        // user: userData,
+        // accessToken: accessToken || "no token generated",
+        // refreshToken: refreshToken || "no token generated",
       });
     } catch (error) {
       return res.status(500).json({ message: "Server error", error });
@@ -62,10 +63,14 @@ export const authController = {
         return res.status(400).json({ message: "All fields required" });
       }
 
-      const snapshot = await usersCollection.where("email", "==", email).get();
+      const emailNormalized = email.trim().toLowerCase();
+
+      const snapshot = await usersCollection
+        .where("email", "==", emailNormalized)
+        .get();
 
       if (snapshot.empty) {
-        return res.status(400).json({ message: "Invalid credentials" });
+        return res.status(400).json({ message: "User not found" });
       }
 
       const userDoc = snapshot.docs[0];
@@ -79,7 +84,6 @@ export const authController = {
 
       const accessToken = generateAccessToken(userDoc.id);
       const refreshToken = generateRefreshToken(userDoc.id);
-
       return res.json({ user: userDoc.data(), accessToken, refreshToken });
     } catch (error) {
       return res.status(500).json({ message: "Server error", error });
@@ -140,5 +144,11 @@ export const authController = {
     } catch {
       return res.status(403).json({ message: "Invalid refresh token" });
     }
+  },
+
+  getWebhook: async (req: Request, res: Response) => {
+    console.log("Webhook query", req.query);
+    console.log("Webhook hit with body:", req.body);
+    return res.json({ message: "Webhook received" });
   },
 };
