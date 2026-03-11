@@ -60,7 +60,7 @@ export const requireAdmin = async (
   next: NextFunction,
 ) => {
   try {
-    const userDoc = await db.collection("users").doc(req.user.uid).get();
+    const userDoc = await db.collection("users").doc(req.user.email).get();
     if (!userDoc.exists || userDoc?.data()?.role !== "admin") {
       return res
         .status(403)

@@ -9,9 +9,13 @@ export const signalController = {
   getSignals: async (req: Request, res: Response) => {
     try {
       const userTier = await getUserTier(req.user.email);
+
+      console.log("User tier:", userTier);
+
       const userRank = userTier
         ? TIER_RANK[userTier as keyof typeof TIER_RANK]
         : -1;
+      console.log("User rank:", userRank);
 
       const snapshot = await db
         .collection("signals")
@@ -19,11 +23,15 @@ export const signalController = {
         .orderBy("createdAt", "desc")
         .get();
 
+      console.log("User rank:", userRank);
       const signals = snapshot.docs.map((doc) => {
         const data = doc.data();
         const signalRank = TIER_RANK[data.tier as keyof typeof TIER_RANK] ?? 0;
         const rankDiff = signalRank - userRank;
 
+        console.log(
+          `Signal ${doc.id} - Signal rank: ${signalRank}, Rank diff: ${rankDiff}`,
+        );
         // rankDiff <= 0: full access
         // rankDiff === 1: card visible, detail locked
         // rankDiff >= 2: card blurred, detail locked
@@ -49,6 +57,8 @@ export const signalController = {
           accessLevel,
         };
       });
+
+      console.log("Signals fetched:", signals);
 
       return res.json({ success: true, payload: signals });
     } catch (err: any) {
@@ -126,6 +136,7 @@ export const signalController = {
   },
   createSignal: async (req: Request, res: Response) => {
     try {
+      console.log("Creating signal with data:", req.body);
       const {
         pair,
         timeframe,
@@ -217,12 +228,10 @@ export const signalController = {
         .update(updates);
       return res.json({ success: true, message: "Signal updated." });
     } catch (err: any) {
-      return res
-        .status(500)
-        .json({
-          success: false,
-          message: err.message || "Error updating signal",
-        });
+      return res.status(500).json({
+        success: false,
+        message: err.message || "Error updating signal",
+      });
     }
   },
   deleteSignal: async (req: Request, res: Response) => {
@@ -247,12 +256,10 @@ export const signalController = {
 
       return res.json({ success: true, message: "Signal closed." });
     } catch (err: any) {
-      return res
-        .status(500)
-        .json({
-          success: false,
-          message: err.message || "Error deleting signal",
-        });
+      return res.status(500).json({
+        success: false,
+        message: err.message || "Error deleting signal",
+      });
     }
   },
 };
