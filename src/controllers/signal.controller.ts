@@ -9,21 +9,21 @@ export const signalController = {
   getSignals: async (req: Request, res: Response) => {
     try {
       const userTier = await getUserTier(req.user.email);
-
-      console.log("User tier:", userTier);
-
       const userRank = userTier
         ? TIER_RANK[userTier as keyof typeof TIER_RANK]
         : -1;
-      console.log("User rank:", userRank);
 
       const snapshot = await db
         .collection("signals")
         .where("status", "==", "active")
-        .orderBy("createdAt", "desc")
+        // .orderBy("createdAt", "desc")
         .get();
 
-      console.log("User rank:", userRank);
+      console.log("Docs is displayed here");
+      const val = snapshot.docs.map((doc) => doc.data());
+
+      console.log("Fetched docs:", val);
+
       const signals = snapshot.docs.map((doc) => {
         const data = doc.data();
         const signalRank = TIER_RANK[data.tier as keyof typeof TIER_RANK] ?? 0;
