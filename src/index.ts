@@ -5,6 +5,7 @@ import helmet from "helmet";
 import authRoute from "./routes/auth.route";
 import subscriptionRoute from "./routes/subscription.route";
 import signalRoute from "./routes/signal.route";
+import tierRoute from "./routes/tier.route";
 
 configDotenv();
 const app = express();
@@ -34,3 +35,4 @@ app.listen(PORT, () => {
 app.use(`${version}/auth`, authRoute);
 app.use(`${version}/subscriptions`, subscriptionRoute);
 app.use(`${version}/signals`, signalRoute);
+app.use(`${version}/tiers`, tierRoute);
