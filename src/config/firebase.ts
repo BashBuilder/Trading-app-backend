@@ -1,6 +1,5 @@
 import admin from "firebase-admin";
 import { configDotenv } from "dotenv";
-import serviceAccount from "./secretServoce.json";
 
 configDotenv();
 
