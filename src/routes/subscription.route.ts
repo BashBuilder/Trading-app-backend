@@ -24,28 +24,4 @@ subscriptionRouter.post(
 // ── POST /api/v1/subscriptions/cancel ──────────────────────────────────────
 subscriptionRouter.post("/cancel", validateUser, subscriptionController.cancel);
 
-subscriptionRouter.get(
-  "/admin/subscriptions",
-  validateUser,
-  requireAdmin,
-  subscriptionController.adminGetAllSubscriptions,
-);
-subscriptionRouter.get(
-  "/admin/subscriptions/history/:uid",
-  validateUser,
-  requireAdmin,
-  subscriptionController.adminGetUserSubscription,
-);
-subscriptionRouter.post(
-  "/admin/subscriptions",
-  validateUser,
-  requireAdmin,
-  subscriptionController.adminAddUserSubscription,
-);
-subscriptionRouter.delete(
-  "admin/subscriptions/:uid",
-  validateUser,
-  requireAdmin,
-  subscriptionController.adminCancelUserSubscription,
-);
 export default subscriptionRouter;

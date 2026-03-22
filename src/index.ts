@@ -6,6 +6,7 @@ import authRoute from "./routes/auth.route";
 import subscriptionRoute from "./routes/subscription.route";
 import signalRoute from "./routes/signal.route";
 import tierRoute from "./routes/tier.route";
+import adminSubscriptionRouter from "./routes/admin.subscription";
 
 configDotenv();
 const app = express();
@@ -29,6 +30,7 @@ app.use(`${version}/auth`, authRoute);
 app.use(`${version}/subscriptions`, subscriptionRoute);
 app.use(`${version}/signals`, signalRoute);
 app.use(`${version}/tiers`, tierRoute);
+app.use(`${version}/admin/subscriptions`, adminSubscriptionRouter);
 
 const PORT = process.env.PORT || 4000;
 
