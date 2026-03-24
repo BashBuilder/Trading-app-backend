@@ -50,7 +50,9 @@ export const tierController = {
   },
   updateTier: async (req: Request, res: Response) => {
     try {
-      const { name, description, capabilities, price, order } = req.body;
+      // const { name, description, capabilities, price, order } = req.body;
+      const { name, description, capabilities, price } = req.body;
+
       const doc = await db
         .collection("tiers")
         .doc(req.params.id as string)
@@ -81,12 +83,14 @@ export const tierController = {
       if (description !== undefined) updates.description = description;
       if (capabilities !== undefined) updates.capabilities = capabilities;
       if (price !== undefined) updates.price = price;
-      if (order !== undefined) updates.order = order;
+      // if (order !== undefined) updates.order = order;
 
-      await db
+      const response = await db
         .collection("tiers")
         .doc(req.params.id as string)
         .update(updates);
+
+      // console.log("Tier updated:", response);
 
       return res.json({ success: true, message: "Tier updated successfully." });
     } catch (err: any) {
