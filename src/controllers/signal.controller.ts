@@ -19,19 +19,12 @@ export const signalController = {
         // .orderBy("createdAt", "desc")
         .get();
 
-      console.log("Docs is displayed here");
       const val = snapshot.docs.map((doc) => doc.data());
-
-      console.log("Fetched docs:", val);
 
       const signals = snapshot.docs.map((doc) => {
         const data = doc.data();
         const signalRank = TIER_RANK[data.tier as keyof typeof TIER_RANK] ?? 0;
         const rankDiff = signalRank - userRank;
-
-        console.log(
-          `Signal ${doc.id} - Signal rank: ${signalRank}, Rank diff: ${rankDiff}`,
-        );
         // rankDiff <= 0: full access
         // rankDiff === 1: card visible, detail locked
         // rankDiff >= 2: card blurred, detail locked
@@ -57,9 +50,6 @@ export const signalController = {
           accessLevel,
         };
       });
-
-      console.log("Signals fetched:", signals);
-
       return res.json({ success: true, payload: signals });
     } catch (err: any) {
       return res.status(500).json({
@@ -68,7 +58,7 @@ export const signalController = {
       });
     }
   },
-  getSignal: async (req: Request, res: Response) => {
+  getSignalById: async (req: Request, res: Response) => {
     try {
       const userTier = await getUserTier(req.user.email);
       const userRank = userTier
@@ -96,11 +86,17 @@ export const signalController = {
         });
       }
 
+      const rankDiff = signalRank - userRank;
+      let accessLevel = "full";
+      if (rankDiff === 1) accessLevel = "preview";
+      if (rankDiff >= 2) accessLevel = "locked";
+
       return res.json({
         success: true,
         payload: {
           id: doc.id,
           ...data,
+          accessLevel,
           createdAt: data?.createdAt?.toDate().toISOString(),
           updatedAt: data?.updatedAt?.toDate().toISOString(),
         },

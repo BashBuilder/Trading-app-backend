@@ -1,29 +1,28 @@
 import { Router } from "express";
-import subscriptionRouter from "./subscription.route";
 import { requireAdmin, validateUser } from "../middleware/auth.middleware";
 import { subscriptionController } from "../controllers/subscription.controller";
 
 const adminSubscriptionRouter = Router();
 
-subscriptionRouter.get(
+adminSubscriptionRouter.get(
   "",
   validateUser,
   requireAdmin,
   subscriptionController.adminGetAllSubscriptions,
 );
-subscriptionRouter.get(
+adminSubscriptionRouter.get(
   "/history/:uid",
   validateUser,
   requireAdmin,
   subscriptionController.adminGetUserSubscription,
 );
-subscriptionRouter.post(
+adminSubscriptionRouter.post(
   "",
   validateUser,
   requireAdmin,
   subscriptionController.adminAddUserSubscription,
 );
-subscriptionRouter.delete(
+adminSubscriptionRouter.delete(
   "/:uid",
   validateUser,
   requireAdmin,

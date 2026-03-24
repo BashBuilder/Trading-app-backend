@@ -6,7 +6,7 @@ import { requireAdmin, validateUser } from "../middleware/auth.middleware";
 const signalRoute = Router();
 
 signalRoute.get("/", validateUser, signalController.getSignals);
-signalRoute.get("/:id", validateUser, signalController.getSignal);
+signalRoute.get("/:id", validateUser, signalController.getSignalById);
 signalRoute.get(
   "/admin/all",
   validateUser,

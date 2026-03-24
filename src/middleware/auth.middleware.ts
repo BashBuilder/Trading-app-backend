@@ -66,6 +66,13 @@ export const requireAdmin = async (
         .status(403)
         .json({ success: false, message: "Admin access required." });
     }
+
+    console.log(
+      "Admin access granted for user:",
+      req.user.email,
+      "with role:",
+      userDoc.data()?.role,
+    );
     next();
   } catch (error: any) {
     return res.status(500).json({

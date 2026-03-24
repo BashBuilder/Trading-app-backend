@@ -99,7 +99,6 @@ export const authController = {
   // ✅ GET USER (Protected route example)
   getUser: async (req: Request, res: Response) => {
     try {
-      console.log("Get User", req.user || "No user in request");
       return res.json(req.user);
     } catch {
       return res.status(401).json({ message: "Invalid token" });
