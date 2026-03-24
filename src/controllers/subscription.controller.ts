@@ -122,10 +122,13 @@ export const subscriptionController = {
         // In production: add paymentIntentId, receiptUrl etc from Stripe/Paystack
       };
 
-      await db.collection("subscriptions").doc(email).set(subscription);
+      const res1 = await db
+        .collection("subscriptions")
+        .doc(email)
+        .set(subscription);
 
       // Also update user doc with current tier for quick access
-      await db.collection("users").doc(email).update({
+      const res2 = await db.collection("users").doc(req.user.uid).update({
         tier: tierId,
         tierStatus: "active",
       });
@@ -155,7 +158,7 @@ export const subscriptionController = {
         cancelledAt: new Date(),
       });
 
-      await db.collection("users").doc(email).update({
+      await db.collection("users").doc(req.user.uid).update({
         tierStatus: "cancelled",
       });
 

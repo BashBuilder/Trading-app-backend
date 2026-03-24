@@ -33,7 +33,10 @@ export async function validateUser(
       return res.status(404).json({ message: "User not found" });
     }
     const { password, ...userData } = userDoc.data() as any;
-    req.user = userData;
+    req.user = {
+      ...userData,
+      uid: decoded.userId,
+    };
     next();
   } catch (err) {
     console.error("validateUser failed:", err);
@@ -44,35 +47,18 @@ export async function validateUser(
   }
 }
 
-export const requireRole =
-  (roles: string[]) => (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user || !roles.includes(req.user.role)) {
-      return res
-        .status(403)
-        .json({ error: "Forbidden", message: "Access denied", success: false });
-    }
-    next();
-  };
-
 export const requireAdmin = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    const userDoc = await db.collection("users").doc(req.user.email).get();
+    const userDoc = await db.collection("users").doc(req.user.uid).get();
     if (!userDoc.exists || userDoc?.data()?.role !== "admin") {
       return res
         .status(403)
         .json({ success: false, message: "Admin access required." });
     }
-
-    console.log(
-      "Admin access granted for user:",
-      req.user.email,
-      "with role:",
-      userDoc.data()?.role,
-    );
     next();
   } catch (error: any) {
     return res.status(500).json({
