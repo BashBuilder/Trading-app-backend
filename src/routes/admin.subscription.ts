@@ -6,8 +6,8 @@ const adminSubscriptionRouter = Router();
 
 adminSubscriptionRouter.get(
   "",
-  validateUser,
-  requireAdmin,
+  // validateUser,
+  // requireAdmin,
   subscriptionController.adminGetAllSubscriptions,
 );
 adminSubscriptionRouter.get(

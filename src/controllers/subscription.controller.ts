@@ -184,9 +184,7 @@ export const subscriptionController = {
       if (status && status !== "all") {
         query = query.where("status", "==", status);
       }
-
-      const snapshot = await query.orderBy("subscribedAt", "desc").get();
-
+      const snapshot = await query.get();
       let subscriptions = snapshot.docs.map((doc: any) => ({
         id: doc.id,
         ...doc.data(),
@@ -212,8 +210,14 @@ export const subscriptionController = {
       const enriched = await Promise.all(
         subscriptions.map(async (sub: any) => {
           try {
-            const userDoc = await db.collection("users").doc(sub.uid).get();
-            const userData = userDoc.data();
+            // const userDoc = await db.collection("users").doc(sub.email).get();
+            const userDoc = await db
+              .collection("users")
+              .where("email", "==", sub.email)
+              .limit(1)
+              .get();
+            const userData = userDoc.docs[0]?.data();
+
             return {
               ...sub,
               user: {
@@ -230,7 +234,6 @@ export const subscriptionController = {
           }
         }),
       );
-
       return res.json({ success: true, payload: enriched });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
@@ -336,43 +339,94 @@ export const subscriptionController = {
   },
   adminCancelUserSubscription: async (req: Request, res: Response) => {
     try {
-      const subDoc = await db
+      const subDocument = await db
         .collection("subscriptions")
-        .doc(req.params.uid as string)
+        .where("email" == (req.params.uid as string))
+        // .doc(req.params.uid as string)
         .get();
-      if (!subDoc.exists) {
+      if (!subDocument.docs[0]?.exists) {
         return res
           .status(404)
           .json({ success: false, message: "Subscription not found." });
       }
 
-      const sub = subDoc.data()!;
+      const subs = subDocument.docs[0]?.data()!;
+      const email = req.params.uid as string;
 
-      await db
+      // Get subscription
+      const subSnapshot = await db
         .collection("subscriptions")
-        .doc(req.params.uid as string)
-        .update({
-          status: "cancelled",
-          cancelledAt: new Date(),
-          cancelledByAdmin: true,
-        });
+        .where("email", "==", email)
+        .limit(1)
+        .get();
 
-      await db
+      if (subSnapshot.empty) {
+        throw new Error("Subscription not found");
+      }
+
+      const subDoc = subSnapshot.docs[0];
+      const sub = subDoc.data();
+
+      // Update subscription
+      await subDoc.ref.update({
+        status: "cancelled",
+        cancelledAt: new Date(),
+        cancelledByAdmin: true,
+      });
+
+      // Update user
+      const userSnapshot = await db
         .collection("users")
-        .doc(req.params.uid as string)
-        .update({
+        .where("email", "==", email)
+        .limit(1)
+        .get();
+
+      if (!userSnapshot.empty) {
+        await userSnapshot.docs[0].ref.update({
           tierStatus: "cancelled",
         });
+      }
 
-      // Log to history
+      // Log history
       await db.collection("subscription_history").add({
-        uid: req.params.uid as string,
+        uid: email,
+        email: email,
         action: "admin_cancel",
         tierId: sub.tierId,
         tierName: sub.tierName,
         performedBy: req.user.uid,
         createdAt: new Date(),
       });
+
+      // await db
+      //   .collection("subscriptions")
+      //   .where("email", "==", (req.params.uid as string))
+      //   .get()
+      //   .then((snapshot) => snapshot.docs)
+      //   .[0]?.
+      //   .update({
+      //     status: "cancelled",
+      //     cancelledAt: new Date(),
+      //     cancelledByAdmin: true,
+      //   });
+
+      // await db
+      //   .collection("users")
+      //   .where("email" == (req.params.uid as string))
+      //   .get().
+      //   .update({
+      //     tierStatus: "cancelled",
+      //   });
+
+      // Log to history
+      // await db.collection("subscription_history").add({
+      //   uid: req.params.uid as string,
+      //   action: "admin_cancel",
+      //   tierId: sub.tierId,
+      //   tierName: sub.tierName,
+      //   performedBy: req.user.uid,
+      //   createdAt: new Date(),
+      // });
 
       return res.json({ success: true, message: "Subscription cancelled." });
     } catch (err: any) {
