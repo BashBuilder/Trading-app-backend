@@ -132,4 +132,17 @@ export const authController = {
     console.log("Webhook hit with body:", req.body);
     return res.json({ message: "Webhook received" });
   },
+
+  getAllUsers: async (_req: Request, res: Response) => {
+    try {
+      const snapshot = await usersCollection.get();
+      const users = snapshot.docs.map((doc) => ({
+        uid: doc.id,
+        ...doc.data(),
+      }));
+      return res.json(users);
+    } catch (error) {
+      return res.status(500).json({ message: "Server error", error });
+    }
+  },
 };

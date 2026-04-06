@@ -296,10 +296,10 @@ export const subscriptionController = {
         expiresAt = new Date(now);
         expiresAt.setDate(expiresAt.getDate() + Number(durationDays));
       }
-      // oneTime has no expiry
 
       const subscription = {
         uid,
+        email: uid,
         tierId,
         tierName: tier.name,
         billingCycle,
@@ -313,13 +313,25 @@ export const subscriptionController = {
       };
 
       // Save subscription
-      await db.collection("subscriptions").doc(uid).set(subscription);
+      const response = await db
+        .collection("subscriptions")
+        .doc(uid)
+        .set(subscription);
 
-      // Update user tier
-      await db.collection("users").doc(uid).update({
-        tier: tierId,
-        tierStatus: "active",
-      });
+      const userDoc = await db
+        .collection("users")
+        .where("email", "==", uid)
+        .limit(1)
+        .get();
+
+      console.log("User doc for tier update:", userDoc);
+      if (!userDoc.empty) {
+        const userUpdate = await userDoc.docs[0].ref.update({
+          tier: tierId,
+          tierStatus: "active",
+        });
+        console.log("User tier updated:", userUpdate);
+      }
 
       // Log to history
       await db.collection("subscription_history").add({
@@ -339,20 +351,7 @@ export const subscriptionController = {
   },
   adminCancelUserSubscription: async (req: Request, res: Response) => {
     try {
-      const subDocument = await db
-        .collection("subscriptions")
-        .where("email" == (req.params.uid as string))
-        // .doc(req.params.uid as string)
-        .get();
-      if (!subDocument.docs[0]?.exists) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Subscription not found." });
-      }
-
-      const subs = subDocument.docs[0]?.data()!;
       const email = req.params.uid as string;
-
       // Get subscription
       const subSnapshot = await db
         .collection("subscriptions")
@@ -397,36 +396,6 @@ export const subscriptionController = {
         performedBy: req.user.uid,
         createdAt: new Date(),
       });
-
-      // await db
-      //   .collection("subscriptions")
-      //   .where("email", "==", (req.params.uid as string))
-      //   .get()
-      //   .then((snapshot) => snapshot.docs)
-      //   .[0]?.
-      //   .update({
-      //     status: "cancelled",
-      //     cancelledAt: new Date(),
-      //     cancelledByAdmin: true,
-      //   });
-
-      // await db
-      //   .collection("users")
-      //   .where("email" == (req.params.uid as string))
-      //   .get().
-      //   .update({
-      //     tierStatus: "cancelled",
-      //   });
-
-      // Log to history
-      // await db.collection("subscription_history").add({
-      //   uid: req.params.uid as string,
-      //   action: "admin_cancel",
-      //   tierId: sub.tierId,
-      //   tierName: sub.tierName,
-      //   performedBy: req.user.uid,
-      //   createdAt: new Date(),
-      // });
 
       return res.json({ success: true, message: "Subscription cancelled." });
     } catch (err: any) {

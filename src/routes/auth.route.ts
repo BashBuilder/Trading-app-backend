@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authController } from "../controllers/auth.controller.js";
-import { validateUser } from "../middleware/auth.middleware.js";
+import { requireAdmin, validateUser } from "../middleware/auth.middleware.js";
 
 const authRoute = Router();
 
@@ -10,4 +10,5 @@ authRoute.post("/logout", authController.logout);
 
 authRoute.get("/user", validateUser, authController.getUser);
 authRoute.post("/webhook", authController.getWebhook);
+authRoute.get("/users", validateUser, requireAdmin, authController.getAllUsers);
 export default authRoute;
