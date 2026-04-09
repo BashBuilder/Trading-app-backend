@@ -1,7 +1,7 @@
 import { configDotenv } from "dotenv";
 import express from "express";
 import cors from "cors";
-import helmet from "helmet";
+// import helmet from "helmet";
 import authRoute from "./routes/auth.route";
 import subscriptionRoute from "./routes/subscription.route";
 import signalRoute from "./routes/signal.route";
@@ -20,7 +20,7 @@ app.use(
     origin: ["*", "http://localhost:3000", "http://localhost:3001"],
   }),
 );
-app.use(helmet());
+// app.use(helmet());
 
 app.get("/health", (_, res) => {
   res.json({ status: "ok" });
@@ -37,3 +37,5 @@ const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+export default app;

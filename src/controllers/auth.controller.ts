@@ -39,15 +39,10 @@ export const authController = {
         email,
       };
 
-      // const accessToken = generateAccessToken(userRef.id);
-      // const refreshToken = generateRefreshToken(userRef.id);
-
       return res.status(201).json({
         message: "User registered",
         success: true,
-        // user: userData,
-        // accessToken: accessToken || "no token generated",
-        // refreshToken: refreshToken || "no token generated",
+        user: userData,
       });
     } catch (error) {
       return res.status(500).json({ message: "Server error", error });
@@ -128,8 +123,8 @@ export const authController = {
   },
 
   getWebhook: async (req: Request, res: Response) => {
-    console.log("Webhook query", req.query);
+    res.status(200);
     console.log("Webhook hit with body:", req.body);
-    return res.json({ message: "Webhook received" });
+    return;
   },
 };
