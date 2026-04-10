@@ -1,6 +1,8 @@
-import { it, describe, expect } from "vitest";
+import { it, describe, expect, vi } from "vitest";
 import requests from "supertest";
 import app from "../../src";
+
+vi.mock("../../src/config/firebase.ts", () => {});
 
 describe("Test the regiester functionality", async () => {
   it("should register a user successfully", async () => {
