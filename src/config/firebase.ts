@@ -1,7 +1,7 @@
 import admin from "firebase-admin";
 import { configDotenv } from "dotenv";
-
 configDotenv();
+
 admin.initializeApp({
   credential: admin.credential.cert({
     type: "service_account",
@@ -18,5 +18,7 @@ admin.initializeApp({
     universe_domain: process.env.FIREBASE_UNIVERSE_DOMAIN,
   } as any),
 });
+
+console.log(process.env.FIREBASE_PRIVATE_KEY?.includes("\n")); // real newlines only appear AFTER replace()
 
 export const db = admin.firestore();
