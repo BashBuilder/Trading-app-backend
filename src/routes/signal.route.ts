@@ -10,7 +10,6 @@ signalRoute.get("/:id", validateUser, signalController.getSignalById);
 signalRoute.get(
   "/admin/all",
   validateUser,
-  // requireAdmin,
   signalController.adminGetAll,
 );
 signalRoute.post(
