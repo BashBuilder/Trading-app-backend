@@ -1,10 +1,58 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import admin from "firebase-admin";
 import { db } from "../config/firebase";
 import { generateAccessToken, generateRefreshToken } from "../config/jwt";
+import { emailService } from "../services/email.service";
+import { throttle } from "../lib/throttle";
+import {
+  OTP_PURPOSES,
+  OtpPurpose,
+  buildOtpRecord,
+  generateOtp,
+  secondsUntilResendAllowed,
+  verifyOtpRecord,
+} from "../services/otp.service";
 
 const usersCollection = db.collection("users");
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 8;
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+/** Strips fields that should never leave the server (password hash, raw OTP data). */
+function sanitizeUser(id: string, data: FirebaseFirestore.DocumentData) {
+  const { password, otp, ...rest } = data;
+  return { uid: id, ...rest };
+}
+
+async function findUserByEmail(email: string) {
+  const snapshot = await usersCollection
+    .where("email", "==", normalizeEmail(email))
+    .limit(1)
+    .get();
+  if (snapshot.empty) return null;
+  return snapshot.docs[0];
+}
+
+async function issueOtpAndSend(
+  userDoc: FirebaseFirestore.QueryDocumentSnapshot,
+  purpose: OtpPurpose,
+) {
+  const user = userDoc.data();
+  const otp = generateOtp();
+  await userDoc.ref.update({ otp: buildOtpRecord(purpose, otp) });
+
+  if (purpose === OTP_PURPOSES.VERIFY_EMAIL) {
+    await emailService.sendVerificationOtp(user.email, user.firstName, otp);
+  } else {
+    await emailService.sendPasswordResetOtp(user.email, user.firstName, otp);
+  }
+}
 
 export const authController = {
   // ✅ REGISTER
@@ -14,40 +62,264 @@ export const authController = {
       if (!firstName || !lastName || !email || !password) {
         return res.status(400).json({ message: "All fields required" });
       }
-      // Check if user exists
-      const existing = await usersCollection.where("email", "==", email).get();
 
-      if (!existing.empty) {
+      const emailNormalized = normalizeEmail(email);
+      if (!EMAIL_REGEX.test(emailNormalized)) {
+        return res.status(400).json({ message: "Enter a valid email address" });
+      }
+      if (password.length < MIN_PASSWORD_LENGTH) {
+        return res.status(400).json({
+          message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+        });
+      }
+
+      const existing = await findUserByEmail(emailNormalized);
+      if (existing) {
         return res.status(400).json({ message: "User already exists" });
       }
 
-      // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
+      const otp = generateOtp();
 
       const userRef = await usersCollection.add({
         firstName,
         lastName,
-        email: email.trim().toLowerCase(),
+        email: emailNormalized,
         password: hashedPassword,
+        role: "user",
+        emailVerified: false,
         createdAt: new Date(),
+        otp: buildOtpRecord(OTP_PURPOSES.VERIFY_EMAIL, otp),
       });
 
-      const userData = {
-        id: userRef.id,
-        firstName,
-        lastName,
-        email,
-      };
-
-      // const accessToken = generateAccessToken(userRef.id);
-      // const refreshToken = generateRefreshToken(userRef.id);
+      try {
+        await emailService.sendVerificationOtp(emailNormalized, firstName, otp);
+      } catch (err) {
+        // Account is created either way — the user can request a new code.
+        console.error("Failed to send verification email:", err);
+      }
 
       return res.status(201).json({
-        message: "User registered",
         success: true,
-        // user: userData,
-        // accessToken: accessToken || "no token generated",
-        // refreshToken: refreshToken || "no token generated",
+        message: "Account created. Check your email for a verification code.",
+        email: emailNormalized,
+      });
+    } catch (error) {
+      return res.status(500).json({ message: "Server error", error });
+    }
+  },
+
+  // ✅ VERIFY OTP (email verification or pre-check for password reset)
+  verifyOtp: async (req: Request, res: Response) => {
+    try {
+      const { email, otp, purpose } = req.body;
+      const resolvedPurpose: OtpPurpose = purpose || OTP_PURPOSES.VERIFY_EMAIL;
+
+      if (!email || !otp) {
+        return res.status(400).json({ message: "Email and code are required" });
+      }
+
+      const userDoc = await findUserByEmail(email);
+      if (!userDoc) {
+        return res.status(400).json({ message: "Invalid code" });
+      }
+
+      const user = userDoc.data();
+      const result = verifyOtpRecord(user.otp, resolvedPurpose, otp);
+
+      if (!result.ok) {
+        if (result.reason === "mismatch") {
+          await userDoc.ref.update({
+            "otp.attempts": admin.firestore.FieldValue.increment(1),
+          });
+        }
+        const messages: Record<string, string> = {
+          not_found: "Request a new code first",
+          expired: "This code has expired. Request a new one.",
+          too_many_attempts: "Too many attempts. Request a new code.",
+          mismatch: "Invalid code",
+        };
+        return res.status(400).json({ message: messages[result.reason] });
+      }
+
+      if (resolvedPurpose === OTP_PURPOSES.VERIFY_EMAIL) {
+        await userDoc.ref.update({
+          emailVerified: true,
+          otp: admin.firestore.FieldValue.delete(),
+        });
+
+        try {
+          await emailService.sendWelcome(user.email, user.firstName);
+        } catch (err) {
+          console.error("Failed to send welcome email:", err);
+        }
+
+        // Auto-login right after verification.
+        const accessToken = generateAccessToken(userDoc.id);
+        const refreshToken = generateRefreshToken(userDoc.id);
+
+        return res.json({
+          success: true,
+          message: "Email verified",
+          user: sanitizeUser(userDoc.id, { ...user, emailVerified: true }),
+          accessToken,
+          refreshToken,
+        });
+      }
+
+      // reset_password purpose: code is valid, but only consumed by /reset-password
+      // so it can be checked again atomically alongside the new password.
+      return res.json({ success: true, message: "Code verified" });
+    } catch (error) {
+      return res.status(500).json({ message: "Server error", error });
+    }
+  },
+
+  // ✅ RESEND OTP
+  resendOtp: async (req: Request, res: Response) => {
+    try {
+      const { email, purpose } = req.body;
+      const resolvedPurpose: OtpPurpose = purpose || OTP_PURPOSES.VERIFY_EMAIL;
+      const generic = {
+        success: true,
+        message: "If an account exists for this email, a code has been sent.",
+      };
+
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const rl = throttle({
+        action: `resend-otp:${resolvedPurpose}`,
+        identifier: normalizeEmail(email),
+        limit: 5,
+        windowSeconds: 15 * 60,
+      });
+      if (!rl.allowed) {
+        return res.status(429).json({
+          message: `Too many requests. Try again in ${rl.retryAfter}s.`,
+        });
+      }
+
+      const userDoc = await findUserByEmail(email);
+      if (!userDoc) return res.json(generic); // avoid leaking whether the email exists
+
+      const user = userDoc.data();
+      if (
+        resolvedPurpose === OTP_PURPOSES.VERIFY_EMAIL &&
+        user.emailVerified
+      ) {
+        return res.status(400).json({ message: "Email already verified" });
+      }
+
+      const cooldown = secondsUntilResendAllowed(user.otp?.lastSentAt);
+      if (user.otp?.purpose === resolvedPurpose && cooldown > 0) {
+        return res
+          .status(429)
+          .json({ message: `Please wait ${cooldown}s before requesting another code.` });
+      }
+
+      await issueOtpAndSend(userDoc, resolvedPurpose);
+      return res.json(generic);
+    } catch (error) {
+      return res.status(500).json({ message: "Server error", error });
+    }
+  },
+
+  // ✅ FORGOT PASSWORD
+  forgotPassword: async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      const generic = {
+        success: true,
+        message: "If an account exists for this email, a reset code has been sent.",
+      };
+
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const rl = throttle({
+        action: "forgot-password",
+        identifier: normalizeEmail(email),
+        limit: 5,
+        windowSeconds: 15 * 60,
+      });
+      if (!rl.allowed) {
+        return res.status(429).json({
+          message: `Too many requests. Try again in ${rl.retryAfter}s.`,
+        });
+      }
+
+      const userDoc = await findUserByEmail(email);
+      if (!userDoc) return res.json(generic);
+
+      const user = userDoc.data();
+      const cooldown = secondsUntilResendAllowed(user.otp?.lastSentAt);
+      if (user.otp?.purpose === OTP_PURPOSES.RESET_PASSWORD && cooldown > 0) {
+        return res.json(generic); // still generic — don't confirm account existence via timing
+      }
+
+      await issueOtpAndSend(userDoc, OTP_PURPOSES.RESET_PASSWORD);
+      return res.json(generic);
+    } catch (error) {
+      return res.status(500).json({ message: "Server error", error });
+    }
+  },
+
+  // ✅ RESET PASSWORD
+  resetPassword: async (req: Request, res: Response) => {
+    try {
+      const { email, otp, newPassword } = req.body;
+      if (!email || !otp || !newPassword) {
+        return res
+          .status(400)
+          .json({ message: "Email, code and new password are required" });
+      }
+      if (newPassword.length < MIN_PASSWORD_LENGTH) {
+        return res.status(400).json({
+          message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+        });
+      }
+
+      const userDoc = await findUserByEmail(email);
+      if (!userDoc) {
+        return res.status(400).json({ message: "Invalid code" });
+      }
+
+      const user = userDoc.data();
+      const result = verifyOtpRecord(user.otp, OTP_PURPOSES.RESET_PASSWORD, otp);
+
+      if (!result.ok) {
+        if (result.reason === "mismatch") {
+          await userDoc.ref.update({
+            "otp.attempts": admin.firestore.FieldValue.increment(1),
+          });
+        }
+        const messages: Record<string, string> = {
+          not_found: "Request a new code first",
+          expired: "This code has expired. Request a new one.",
+          too_many_attempts: "Too many attempts. Request a new code.",
+          mismatch: "Invalid code",
+        };
+        return res.status(400).json({ message: messages[result.reason] });
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await userDoc.ref.update({
+        password: hashedPassword,
+        otp: admin.firestore.FieldValue.delete(),
+      });
+
+      try {
+        await emailService.sendPasswordChanged(user.email, user.firstName);
+      } catch (err) {
+        console.error("Failed to send password-changed email:", err);
+      }
+
+      return res.json({
+        success: true,
+        message: "Password reset successfully. You can now log in.",
       });
     } catch (error) {
       return res.status(500).json({ message: "Server error", error });
@@ -63,29 +335,46 @@ export const authController = {
         return res.status(400).json({ message: "All fields required" });
       }
 
-      const emailNormalized = email.trim().toLowerCase();
+      const rl = throttle({
+        action: "login",
+        identifier: normalizeEmail(email),
+        limit: 10,
+        windowSeconds: 15 * 60,
+      });
+      if (!rl.allowed) {
+        return res.status(429).json({
+          message: `Too many login attempts. Try again in ${rl.retryAfter}s.`,
+        });
+      }
 
-      const snapshot = await usersCollection
-        .where("email", "==", emailNormalized)
-        .get();
-
-      if (snapshot.empty) {
+      const userDoc = await findUserByEmail(email);
+      if (!userDoc) {
         return res.status(400).json({ message: "User not found" });
       }
 
-      const userDoc = snapshot.docs[0];
       const user = userDoc.data();
-
       const isMatch = await bcrypt.compare(password, user.password);
 
       if (!isMatch) {
         return res.status(400).json({ message: "Invalid credentials" });
       }
 
+      if (!user.emailVerified) {
+        return res.status(403).json({
+          message: "Please verify your email before logging in",
+          emailVerified: false,
+          email: user.email,
+        });
+      }
+
       const accessToken = generateAccessToken(userDoc.id);
       const refreshToken = generateRefreshToken(userDoc.id);
-      console.log();
-      return res.json({ user: userDoc.data(), accessToken, refreshToken });
+
+      return res.json({
+        user: sanitizeUser(userDoc.id, user),
+        accessToken,
+        refreshToken,
+      });
     } catch (error) {
       return res.status(500).json({ message: "Server error", error });
     }
@@ -136,10 +425,7 @@ export const authController = {
   getAllUsers: async (_req: Request, res: Response) => {
     try {
       const snapshot = await usersCollection.get();
-      const users = snapshot.docs.map((doc) => ({
-        uid: doc.id,
-        ...doc.data(),
-      }));
+      const users = snapshot.docs.map((doc) => sanitizeUser(doc.id, doc.data()));
       return res.json(users);
     } catch (error) {
       return res.status(500).json({ message: "Server error", error });

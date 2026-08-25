@@ -19,6 +19,4 @@ admin.initializeApp({
   } as any),
 });
 
-console.log(process.env.FIREBASE_PRIVATE_KEY?.includes("\n")); // real newlines only appear AFTER replace()
-
 export const db = admin.firestore();

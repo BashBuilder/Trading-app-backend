@@ -15,9 +15,22 @@ const version = "/api/v1";
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Comma-separated list of allowed web origins, e.g. "https://app.elitescope.com,https://admin.elitescope.com"
+const allowedOrigins = (
+  process.env.CORS_ORIGINS || "http://localhost:3000,http://localhost:3001"
+)
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: ["*", "http://localhost:3000", "http://localhost:3001"],
+    origin: (origin, callback) => {
+      // No Origin header (native apps, curl, server-to-server) — allow.
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error("Not allowed by CORS"));
+    },
   }),
 );
 app.use(helmet());
