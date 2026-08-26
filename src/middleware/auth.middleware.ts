@@ -32,7 +32,10 @@ export async function validateUser(
     if (!userDoc.exists) {
       return res.status(404).json({ message: "User not found" });
     }
-    const { password, ...userData } = userDoc.data() as any;
+    const { password, otp, ...userData } = userDoc.data() as any;
+    if (userData.active === false) {
+      return res.status(403).json({ message: "This account has been deactivated" });
+    }
     req.user = {
       ...userData,
       uid: decoded.userId,

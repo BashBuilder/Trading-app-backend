@@ -367,6 +367,14 @@ export const authController = {
         });
       }
 
+      if (user.active === false) {
+        return res.status(403).json({
+          message:
+            "This account has been deactivated. Reactivate it to log back in.",
+          deactivated: true,
+        });
+      }
+
       const accessToken = generateAccessToken(userDoc.id);
       const refreshToken = generateRefreshToken(userDoc.id);
 
@@ -383,6 +391,79 @@ export const authController = {
   // ✅ LOGOUT (client deletes token)
   logout: async (_req: Request, res: Response) => {
     return res.json({ message: "Logged out successfully" });
+  },
+
+  // ✅ DEACTIVATE ACCOUNT (requires an authenticated session + password confirmation)
+  deactivateAccount: async (req: Request, res: Response) => {
+    try {
+      const { password } = req.body;
+      if (!password) {
+        return res.status(400).json({ message: "Password is required" });
+      }
+
+      const userRef = usersCollection.doc(req.user.uid);
+      const userDoc = await userRef.get();
+      if (!userDoc.exists) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const user = userDoc.data()!;
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(400).json({ message: "Incorrect password" });
+      }
+
+      await userRef.update({
+        active: false,
+        deactivatedAt: new Date(),
+      });
+
+      return res.json({
+        success: true,
+        message: "Your account has been deactivated.",
+      });
+    } catch (error) {
+      return res.status(500).json({ message: "Server error", error });
+    }
+  },
+
+  // ✅ REACTIVATE ACCOUNT (same credentials as login, for a previously deactivated account)
+  reactivateAccount: async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ message: "All fields required" });
+      }
+
+      const userDoc = await findUserByEmail(email);
+      if (!userDoc) {
+        return res.status(400).json({ message: "User not found" });
+      }
+
+      const user = userDoc.data();
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(400).json({ message: "Invalid credentials" });
+      }
+
+      await userDoc.ref.update({
+        active: true,
+        deactivatedAt: admin.firestore.FieldValue.delete(),
+      });
+
+      const accessToken = generateAccessToken(userDoc.id);
+      const refreshToken = generateRefreshToken(userDoc.id);
+
+      return res.json({
+        success: true,
+        message: "Account reactivated",
+        user: sanitizeUser(userDoc.id, { ...user, active: true }),
+        accessToken,
+        refreshToken,
+      });
+    } catch (error) {
+      return res.status(500).json({ message: "Server error", error });
+    }
   },
 
   // ✅ GET USER (Protected route example)

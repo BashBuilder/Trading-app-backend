@@ -15,6 +15,9 @@ authRoute.post("/verify-otp", authController.verifyOtp);
 authRoute.post("/resend-otp", authController.resendOtp);
 authRoute.post("/forgot-password", authController.forgotPassword);
 authRoute.post("/reset-password", authController.resetPassword);
+authRoute.post("/reactivate", authController.reactivateAccount);
+
+authRoute.post("/deactivate", validateUser, authController.deactivateAccount);
 
 authRoute.get("/user", validateUser, authController.getUser);
 authRoute.post("/webhook", authController.getWebhook);
