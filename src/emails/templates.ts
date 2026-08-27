@@ -13,7 +13,7 @@ export function verifyEmailTemplate(opts: { firstName: string; otp: string }) {
 
   const html = renderEmailLayout({
     previewText: `Your verification code is ${otp}`,
-    heading: `Verify your email, ${firstName} 👋`,
+    heading: `Verify your email, ${firstName}`,
     bodyHtml: `
       <p style="margin:0 0 12px 0;">
         Thanks for creating an Elite Scope account. Enter this code in the app to verify your email address:
@@ -30,11 +30,11 @@ export function verifyEmailTemplate(opts: { firstName: string; otp: string }) {
 
 export function welcomeTemplate(opts: { firstName: string }) {
   const { firstName } = opts;
-  const subject = "Welcome to Elite Scope 🚀";
+  const subject = "Welcome to Elite Scope";
 
   const html = renderEmailLayout({
     previewText: "Your account is verified — here's what's next.",
-    heading: `You're all set, ${firstName} 🎉`,
+    heading: `You're all set, ${firstName}`,
     bodyHtml: `
       <p style="margin:0 0 16px 0;">
         Your email is verified and your Elite Scope account is ready. Here's what you get:
@@ -54,7 +54,10 @@ export function welcomeTemplate(opts: { firstName: string }) {
   return { subject, html };
 }
 
-export function resetPasswordTemplate(opts: { firstName: string; otp: string }) {
+export function resetPasswordTemplate(opts: {
+  firstName: string;
+  otp: string;
+}) {
   const { firstName, otp } = opts;
   const subject = `${otp} is your Elite Scope password reset code`;
 
