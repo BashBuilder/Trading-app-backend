@@ -101,3 +101,31 @@ export function passwordChangedTemplate(opts: { firstName: string }) {
 
   return { subject, html };
 }
+
+export function forwardContactTemplate(opts: {
+  from: string;
+  subject: string;
+  body: string;
+}) {
+  const { from, subject, body } = opts;
+
+  const html = renderEmailLayout({
+    previewText: "You have a new contact email from support@elitescope.org",
+    heading: `${from} sent you a message`,
+    bodyHtml: `
+      <p style="margin:0 0 16px 0;">
+        You have new contact email from ${from}. Here are the details:
+      </p>
+      <div style="margin:0 0 20px 0;">
+        <strong>Subject:</strong> ${subject}<br/>
+        <strong>Message:</strong> ${body}
+      </div>
+      <p style="margin:0 0 4px 0;">
+        Please respond to the sender directly to continue the conversation.
+      </p>
+      ${renderButton("Open Elite Scope", APP_URL)}
+    `,
+  });
+
+  return { subject, html };
+}
