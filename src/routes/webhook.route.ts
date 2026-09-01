@@ -11,6 +11,9 @@ webhookRoutes.post("/resend", async (req: Request, res: Response) => {
   try {
     res.status(200).json({ received: true });
 
+    // console.log("Received webhook event:");
+    console.log("contact", process.env.CONTACT_EMAIL);
+
     const resend = getResendClient();
     if (!resend) {
       throw new Error("RESEND_API_KEY not set");
