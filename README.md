@@ -1,1 +1,1 @@
-# Elite scope backend
+# Elite scope
