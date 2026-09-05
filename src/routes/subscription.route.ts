@@ -6,6 +6,12 @@ const subscriptionRouter = Router();
 
 subscriptionRouter.get("/tiers", subscriptionController.getTiers);
 
+subscriptionRouter.post(
+  "/sync",
+  validateUser,
+  subscriptionController.syncWithRevenueCat,
+);
+
 subscriptionRouter.get(
   "/current",
   validateUser,

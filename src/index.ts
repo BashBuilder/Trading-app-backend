@@ -7,7 +7,7 @@ import subscriptionRoute from "./routes/subscription.route";
 import signalRoute from "./routes/signal.route";
 import tierRoute from "./routes/tier.route";
 import adminSubscriptionRouter from "./routes/admin.subscription";
-import webhookRoutes from "./routes/webhook.route";
+import webhookRoute from "./routes/webhook.route";
 
 configDotenv();
 const app = express();
@@ -45,7 +45,7 @@ app.use(`${version}/subscriptions`, subscriptionRoute);
 app.use(`${version}/signals`, signalRoute);
 app.use(`${version}/tiers`, tierRoute);
 app.use(`${version}/admin/subscriptions`, adminSubscriptionRouter);
-app.use(`${version}/webhook`, webhookRoutes);
+app.use(`${version}/webhook`, webhookRoute);
 
 const PORT = process.env.PORT || 4000;
 

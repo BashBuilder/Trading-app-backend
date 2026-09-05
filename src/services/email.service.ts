@@ -1,6 +1,5 @@
 import { Resend } from "resend";
 import {
-  forwardContactTemplate,
   passwordChangedTemplate,
   resetPasswordTemplate,
   verifyEmailTemplate,
@@ -8,18 +7,17 @@ import {
 } from "../emails/templates";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const EMAIL_FROM =
-  process.env.EMAIL_FROM || "Elite Scope <onboarding@resend.dev>";
+const EMAIL_FROM = process.env.EMAIL_FROM || "Elite Scope <onboarding@resend.dev>";
 
 let client: Resend | null = null;
-export function getResendClient(): Resend | null {
+function getClient(): Resend | null {
   if (!RESEND_API_KEY) return null;
   if (!client) client = new Resend(RESEND_API_KEY);
   return client;
 }
 
 async function send(to: string, subject: string, html: string) {
-  const resend = getResendClient();
+  const resend = getClient();
 
   if (!resend) {
     // Don't crash auth flows just because email isn't configured in this
@@ -64,19 +62,5 @@ export const emailService = {
   sendPasswordChanged: (to: string, firstName: string) => {
     const { subject, html } = passwordChangedTemplate({ firstName });
     return send(to, subject, html);
-  },
-
-  forwardContactEmail: (
-    from: string,
-    to: string,
-    subject: string,
-    body: string,
-  ) => {
-    const { html, subject: returnSubject } = forwardContactTemplate({
-      from,
-      subject,
-      body,
-    });
-    return send(to, returnSubject, html);
   },
 };

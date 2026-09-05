@@ -1,6 +1,11 @@
 import { db } from "../config/firebase";
 import { Request, Response } from "express";
 import { TIERS } from "../data/constants";
+import {
+  fetchRevenueCatSubscriber,
+  resolveTierFromSubscriber,
+} from "../services/revenuecat.service";
+import { applySubscriptionState } from "../services/subscription-sync.service";
 
 const TIER_RANK: Record<string, number> = {
   explorer: 0,
@@ -9,6 +14,36 @@ const TIER_RANK: Record<string, number> = {
 };
 
 export const subscriptionController = {
+  // ✅ SYNC WITH REVENUECAT (call right after a client-side purchase/restore completes,
+  // instead of waiting for webhook delivery to update the UI)
+  syncWithRevenueCat: async (req: Request, res: Response) => {
+    try {
+      const uid = req.user.uid;
+      const subscriber = await fetchRevenueCatSubscriber(uid);
+      const tier = resolveTierFromSubscriber(subscriber);
+      const activeEntitlement = subscriber.entitlements?.[tier];
+
+      await applySubscriptionState({
+        uid,
+        tier,
+        status: tier === "explorer" ? "inactive" : "active",
+        productId: activeEntitlement?.product_identifier ?? null,
+        expiresAt: activeEntitlement?.expires_date
+          ? new Date(activeEntitlement.expires_date)
+          : null,
+        source: "manual-sync",
+        historyAction: "revenuecat_manual_sync",
+      });
+
+      return res.json({ success: true, payload: { tier } });
+    } catch (error: any) {
+      return res.status(500).json({
+        success: false,
+        message: error?.message || "Error syncing subscription status",
+      });
+    }
+  },
+
   getTiers: async (req: Request, res: Response) =>
     //   {
     //   try {
