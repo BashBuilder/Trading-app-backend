@@ -1,8 +1,6 @@
-import { TIERS } from "../data/constants";
-
 const REVENUECAT_API_BASE = "https://api.revenuecat.com/v1";
 
-export type Tier = keyof typeof TIERS; // "explorer" | "strategist" | "mathematician"
+export type Tier = "explorer" | "strategist" | "mathematician";
 
 const TIER_RANK: Record<Tier, number> = {
   explorer: 0,

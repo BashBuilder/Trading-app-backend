@@ -1,6 +1,5 @@
 import { db } from "../config/firebase";
 import { Request, Response } from "express";
-import { TIERS } from "../data/constants";
 import {
   fetchRevenueCatSubscriber,
   resolveTierFromSubscriber,
@@ -104,110 +103,23 @@ export const subscriptionController = {
       });
     }
   },
-  subscribe: async (req: Request, res: Response) => {
-    try {
-      const email = req.user.email;
-      const { tierId, billingCycle } = req.body;
-
-      if (!tierId || !billingCycle) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Missing required fields" });
-      }
-
-      if (!TIERS[tierId as keyof typeof TIERS]) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid tier." });
-      }
-
-      // Validate billing cycle
-      const validCycles = ["monthly", "annual", "oneTime"];
-      if (!validCycles.includes(billingCycle)) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid billing cycle." });
-      }
-
-      const tier = TIERS[tierId as keyof typeof TIERS];
-      const price = tier.price[billingCycle as keyof typeof tier.price];
-
-      // Calculate expiry
-      let expiresAt = null;
-      const now = new Date();
-      if (billingCycle === "monthly") {
-        expiresAt = new Date(now);
-        expiresAt.setMonth(expiresAt.getMonth() + 1);
-      } else if (billingCycle === "annual") {
-        expiresAt = new Date(now);
-        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-      }
-      // oneTime has no expiry
-
-      const subscription = {
-        email,
-        tierId,
-        tierName: tier.name,
-        billingCycle,
-        price,
-        status: "active",
-        capabilities: tier.capabilities,
-        subscribedAt: new Date(),
-        expiresAt: expiresAt,
-        // In production: add paymentIntentId, receiptUrl etc from Stripe/Paystack
-      };
-
-      const res1 = await db
-        .collection("subscriptions")
-        .doc(email)
-        .set(subscription);
-
-      // Also update user doc with current tier for quick access
-      const res2 = await db.collection("users").doc(req.user.uid).update({
-        tier: tierId,
-        tierStatus: "active",
-      });
-
-      return res.json({ success: true, payload: subscription });
-    } catch (error: any) {
-      return res.status(500).json({
-        success: false,
-        message: error.message || "Error subscribing to tier",
-      });
-    }
+  // Disabled: paid tiers are unlocked via Apple/RevenueCat now (see webhook.controller.ts
+  // and syncWithRevenueCat above). Letting the client unlock paid app content through a
+  // custom endpoint like this — bypassing StoreKit — violates App Store Review Guideline
+  // 3.1.1, so this intentionally no-ops instead of granting access.
+  subscribe: async (_req: Request, res: Response) => {
+    return res.status(410).json({
+      success: false,
+      message:
+        "This endpoint is no longer used. Subscriptions are purchased through the App Store — see the in-app paywall.",
+    });
   },
-  cancel: async (req: Request, res: Response) => {
-    try {
-      const email = req.user.email;
-      const subDoc = await db.collection("subscriptions").doc(email).get();
-
-      if (!subDoc.exists || subDoc?.data()?.status !== "active") {
-        return res.status(400).json({
-          success: false,
-          message: "No active subscription to cancel.",
-        });
-      }
-
-      await db.collection("subscriptions").doc(email).update({
-        status: "cancelled",
-        cancelledAt: new Date(),
-      });
-
-      await db.collection("users").doc(req.user.uid).update({
-        tierStatus: "cancelled",
-      });
-
-      return res.json({
-        success: true,
-        message:
-          "Subscription cancelled. Access remains until the end of the billing period.",
-      });
-    } catch (error: any) {
-      return res.status(500).json({
-        success: false,
-        message: error.message || "Error cancelling subscription",
-      });
-    }
+  cancel: async (_req: Request, res: Response) => {
+    return res.status(410).json({
+      success: false,
+      message:
+        "This endpoint is no longer used. Cancel a subscription from Apple's subscription management (Settings → your name → Subscriptions), which the app links to.",
+    });
   },
 
   adminGetAllSubscriptions: async (req: Request, res: Response) => {
